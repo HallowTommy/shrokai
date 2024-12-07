@@ -1,8 +1,9 @@
-psycopg2
-databases[postgresql]
 fastapi
-uvicorn
+uvicorn[standard]
 sqlalchemy
+databases[postgresql]
 gtts
 requests
+psycopg2-binary
+websockets
 
