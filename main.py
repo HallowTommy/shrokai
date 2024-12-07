@@ -81,7 +81,7 @@ async def get_messages():
 # --- SHROKAI bot ---
 async def fetch_news():
     url = "https://api.twitter.com/2/tweets/search/recent?query=crypto"
-    headers = {"Authorization": "Bearer YOUR_TWITTER_API_BEARER_TOKEN"}  # Замените YOUR_TWITTER_API_BEARER_TOKEN
+    headers = {"Authorization": "AAAAAAAAAAAAAAAAAAAAANqqxQEAAAAAAMGQvcTgbOVrWrb9OD8joTEsqww"}  # Замените YOUR_TWITTER_API_BEARER_TOKEN
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         tweets = response.json().get("data", [])
