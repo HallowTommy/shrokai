@@ -6,10 +6,13 @@ from sqlalchemy.orm import sessionmaker
 from databases import Database
 from gtts import gTTS
 import requests
+import asyncio
 
+# --- Database setup ---
 DATABASE_URL = "sqlite:///./chat.db"
 Base = declarative_base()
 engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 db = Database(DATABASE_URL)
 
 class Message(Base):
@@ -20,6 +23,7 @@ class Message(Base):
 
 Base.metadata.create_all(bind=engine)
 
+# --- Chat application ---
 app = FastAPI()
 
 class ConnectionManager:
@@ -56,9 +60,11 @@ async def websocket_endpoint(websocket: WebSocket):
             username = data.get("username")
             text = data.get("text")
 
+            # Save to database
             query = Message.__table__.insert().values(username=username, text=text)
             await db.execute(query)
 
+            # Broadcast message
             await manager.broadcast({"username": username, "text": text})
     except WebSocketDisconnect:
         manager.disconnect(websocket)
@@ -69,6 +75,7 @@ async def get_messages():
     messages = await db.fetch_all(query)
     return messages
 
+# --- SHROKAI bot ---
 async def fetch_news():
     url = "https://api.twitter.com/2/tweets/search/recent?query=crypto"
     headers = {"Authorization": "Bearer YOUR_TWITTER_API_BEARER_TOKEN"}
