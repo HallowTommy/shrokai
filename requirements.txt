@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+sqlalchemy
+databases
+gtts
+requests
