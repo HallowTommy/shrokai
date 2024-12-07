@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from typing import List
 from sqlalchemy import create_engine, Column, String, Integer, Text
@@ -9,7 +10,9 @@ import requests
 import asyncio
 
 # --- Database setup ---
-DATABASE_URL = "sqlite:///./chat.db"
+# Замените значение переменной окружения на ссылку подключения к базе данных PostgreSQL
+# Например: postgresql://username:password@hostname:port/database_name
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://username:password@hostname:port/database_name")  # <- Замените здесь
 Base = declarative_base()
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -78,7 +81,7 @@ async def get_messages():
 # --- SHROKAI bot ---
 async def fetch_news():
     url = "https://api.twitter.com/2/tweets/search/recent?query=crypto"
-    headers = {"Authorization": "Bearer YOUR_TWITTER_API_BEARER_TOKEN"}
+    headers = {"Authorization": "Bearer YOUR_TWITTER_API_BEARER_TOKEN"}  # Замените YOUR_TWITTER_API_BEARER_TOKEN
     response = requests.get(url, headers=headers)
     if response.status_code == 200:
         tweets = response.json().get("data", [])
