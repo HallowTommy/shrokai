@@ -12,7 +12,7 @@ import asyncio
 # --- Database setup ---
 # Замените значение переменной окружения на ссылку подключения к базе данных PostgreSQL
 # Например: postgresql://username:password@hostname:port/database_name
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://username:password@hostname:port/database_name")  # <- Замените здесь
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:OyusRvnLIzSfEvBSchmDxHKwHjjLwzPd@postgres.railway.internal:5432/railway")  # <- Замените здесь
 Base = declarative_base()
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
