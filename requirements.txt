@@ -1,9 +1,2 @@
 fastapi
-uvicorn[standard]
-sqlalchemy
-databases[postgresql]
-gtts
-requests
-psycopg2-binary
-websockets
-
+uvicorn
