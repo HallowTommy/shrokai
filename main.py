@@ -100,11 +100,14 @@ async def chat_websocket_endpoint(websocket: WebSocket):
                         "message": data.get("message", "")
                     }
                     await chat_manager.broadcast(chat_message)
-            except Exception as e:
-                logger.error(f"Error processing chat message: {e}")
+            except ValueError as e:
+                logger.error(f"Invalid JSON received: {e}")
     except WebSocketDisconnect:
         chat_manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
 
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(broadcast_music_state())
+
