@@ -65,17 +65,17 @@ async def broadcast_state():
     global current_track_index, start_time
     while True:
         elapsed_time = time.time() - start_time
-        if elapsed_time >= 180:  # Длительность трека (180 секунд)
+        if elapsed_time >= 180:  # Примерная длительность трека
             current_track_index = (current_track_index + 1) % len(playlist)
             start_time = time.time()
             elapsed_time = 0
+
         state = {
-            "type": "music",  # Добавляем тип сообщения
+            "type": "music",
             "track": current_track_index,
             "time": elapsed_time,
             "url": playlist[current_track_index]
         }
-        # Рассылаем состояние всем подключённым клиентам
         await manager.broadcast(state)
         await asyncio.sleep(1)  # Обновление каждую секунду
 
