@@ -60,7 +60,7 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# Функция для обновления состояния
+# Функция для обновления состояния музыки
 async def broadcast_state():
     global current_track_index, start_time
     while True:
@@ -76,10 +76,20 @@ async def broadcast_state():
             "time": elapsed_time,
             "url": playlist[current_track_index]
         }
-        logger.info(f"Broadcasting state: {state}")  # Логируем отправляемые данные
+        logger.info(f"Broadcasting state: {state}")
         await manager.broadcast(state)
         await asyncio.sleep(1)  # Обновление каждую секунду
-        
+
+# Функция для отправки пингов клиентам
+async def ping_clients():
+    while True:
+        for connection in manager.active_connections:
+            try:
+                await connection.send_json({"type": "ping"})
+            except Exception as e:
+                logger.error(f"Failed to send ping: {e}")
+        await asyncio.sleep(30)  # Отправляем пинг каждые 30 секунд
+
 # WebSocket-эндпоинт
 @app.websocket("/ws/chat")
 async def websocket_endpoint(websocket: WebSocket):
@@ -101,7 +111,8 @@ async def websocket_endpoint(websocket: WebSocket):
     except Exception as e:
         logger.error(f"Error in WebSocket connection: {e}")
 
-# Запускаем рассылку состояния
+# Запускаем фоновые задачи при старте сервера
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(broadcast_state())
+    asyncio.create_task(ping_clients())
