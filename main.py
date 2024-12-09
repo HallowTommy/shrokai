@@ -10,7 +10,7 @@ app = FastAPI()
 # Настраиваем CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Укажите конкретные домены для безопасности
+    allow_origins=["*"],  # Укажите конкретный домен для безопасности
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,11 +33,10 @@ playlist = [
     "https://od.lk/s/NjBfMTYxNzI5ODAwXw/09.%20Holodeck%20Blues.mp3"
 ]
 
-# Текущее состояние воспроизведения
-current_track_index = 0
-start_time = time.time()  # Время начала воспроизведения трека
+current_track_index = 0  # Номер текущего трека
+start_time = time.time()  # Время старта воспроизведения трека
 
-# Менеджер подключения WebSocket
+# Класс для управления подключениями
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
@@ -58,12 +57,12 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# Функция для обновления состояния
+# Функция для рассылки состояния
 async def broadcast_state():
     global current_track_index, start_time
     while True:
         elapsed_time = time.time() - start_time
-        if elapsed_time >= 180:  # Длительность трека (180 секунд)
+        if elapsed_time >= 180:  # Пример длительности трека (180 секунд)
             current_track_index = (current_track_index + 1) % len(playlist)
             start_time = time.time()
             elapsed_time = 0
@@ -73,10 +72,10 @@ async def broadcast_state():
             "url": playlist[current_track_index]
         }
         await manager.broadcast(state)
-        await asyncio.sleep(1)  # Обновление каждую секунду
+        await asyncio.sleep(1)  # Рассылка каждые 1 секунду
 
-# WebSocket-эндпоинт
-@app.websocket("/ws/chat")
+# WebSocket эндпоинт
+@app.websocket("/ws/music")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
