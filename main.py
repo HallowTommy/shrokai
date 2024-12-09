@@ -45,9 +45,11 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
+        logger.info(f"New connection established. Total connections: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
+        logger.info(f"Connection closed. Total connections: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
         for connection in self.active_connections:
@@ -72,6 +74,7 @@ async def broadcast_state():
             "time": elapsed_time,
             "url": playlist[current_track_index]
         }
+        # Рассылаем состояние всем подключённым клиентам
         await manager.broadcast(state)
         await asyncio.sleep(1)  # Обновление каждую секунду
 
@@ -81,7 +84,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            await websocket.receive_text()  # Ожидаем данные, если нужно
+            await websocket.receive_text()  # Слушаем, если клиент отправляет данные
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
