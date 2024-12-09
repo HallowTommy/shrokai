@@ -1,16 +1,14 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-import asyncio
 import logging
-import time
 
 # Создаем приложение FastAPI
 app = FastAPI()
 
-# Настраиваем CORS
+# Настраиваем CORS (для Webflow или других фронтенд-приложений)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Укажите конкретный домен для безопасности
+    allow_origins=["*"],  # Лучше указать конкретные домены для повышения безопасности
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -20,71 +18,45 @@ app.add_middleware(
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Плейлист
-playlist = [
-    "https://od.lk/s/NjBfMTYxNzI3OTY3Xw/01.%20Ma%20Holo.mp3",
-    "https://od.lk/s/NjBfMTYxNzI4MjQ2Xw/02.%20Beat%20Cop.mp3",
-    "https://od.lk/s/NjBfMTYxNzI4MzYyXw/03.%20The%20Stakeout%20%28feat.%20W.%20Giacchi%29.mp3",
-    "https://od.lk/s/NjBfMTYxNzI4NTU3Xw/04.%20Conga%20Mind.mp3",
-    "https://od.lk/s/NjBfMTYxNzI4NzcwXw/05.%20Deep%20Cover.mp3",
-    "https://od.lk/s/NjBfMTYxNzI4OTUwXw/06.%20High%20Slide.mp3",
-    "https://od.lk/s/NjBfMTYxNzI5MTE4Xw/07.%20The%20Stakeout_%20Reprise%20%28feat.%20W.%20Giacchi%29.mp3",
-    "https://od.lk/s/NjBfMTYxNzI5Mjk5Xw/08.%20Dimension%20Alley.mp3",
-    "https://od.lk/s/NjBfMTYxNzI5ODAwXw/09.%20Holodeck%20Blues.mp3"
-]
-
-current_track_index = 0  # Номер текущего трека
-start_time = time.time()  # Время старта воспроизведения трека
-
 # Класс для управления подключениями
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: list[WebSocket] = []
+        self.active_connections: list[WebSocket] = []  # Храним активные подключения
 
     async def connect(self, websocket: WebSocket):
+        """Подключаем WebSocket клиента."""
         await websocket.accept()
         self.active_connections.append(websocket)
+        logger.info(f"New connection established. Total connections: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
+        """Отключаем WebSocket клиента."""
         self.active_connections.remove(websocket)
+        logger.info(f"Connection closed. Total connections: {len(self.active_connections)}")
 
-    async def broadcast(self, message: dict):
+    async def broadcast(self, message: str):
+        """Рассылаем сообщение всем подключенным клиентам."""
+        logger.info(f"Broadcasting message: {message}")
         for connection in self.active_connections:
             try:
-                await connection.send_json(message)
+                await connection.send_text(message)
             except Exception as e:
                 logger.error(f"Failed to send message: {e}")
 
 manager = ConnectionManager()
 
-# Функция для рассылки состояния
-async def broadcast_state():
-    global current_track_index, start_time
-    while True:
-        elapsed_time = time.time() - start_time
-        if elapsed_time >= 180:  # Пример длительности трека (180 секунд)
-            current_track_index = (current_track_index + 1) % len(playlist)
-            start_time = time.time()
-            elapsed_time = 0
-        state = {
-            "track": current_track_index,
-            "time": elapsed_time,
-            "url": playlist[current_track_index]
-        }
-        await manager.broadcast(state)
-        await asyncio.sleep(1)  # Рассылка каждые 1 секунду
-
-# WebSocket эндпоинт
-@app.websocket("/ws/music")
+@app.websocket("/ws/chat")
 async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket-эндпоинт для чата."""
     await manager.connect(websocket)
     try:
         while True:
-            await websocket.receive_text()  # Ожидаем данные, если нужно
+            # Получаем сообщение от клиента
+            data = await websocket.receive_text()
+            logger.info(f"Received message: {data}")
+            # Рассылаем сообщение всем подключенным клиентам
+            await manager.broadcast(data)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-
-# Запускаем рассылку состояния
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(broadcast_state())
+    except Exception as e:
+        logger.error(f"Error: {e}")
