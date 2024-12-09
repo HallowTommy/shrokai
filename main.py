@@ -70,6 +70,7 @@ async def broadcast_state():
             start_time = time.time()
             elapsed_time = 0
         state = {
+            "type": "music",  # Добавляем тип сообщения
             "track": current_track_index,
             "time": elapsed_time,
             "url": playlist[current_track_index]
@@ -84,9 +85,20 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            await websocket.receive_text()  # Слушаем, если клиент отправляет данные
+            # Получаем данные от клиента
+            data = await websocket.receive_json()
+            if data.get("type") == "chat":
+                # Рассылаем сообщение чата
+                chat_message = {
+                    "type": "chat",
+                    "username": data.get("username", "Anonymous"),
+                    "message": data.get("message", "")
+                }
+                await manager.broadcast(chat_message)
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"Error in WebSocket connection: {e}")
 
 # Запускаем рассылку состояния
 @app.on_event("startup")
