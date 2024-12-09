@@ -11,7 +11,7 @@ app = FastAPI()
 # Настраиваем CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Укажите конкретные домены для безопасности
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -21,7 +21,7 @@ app.add_middleware(
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Плейлист (пути обновлены для доступа через "/media")
+# Плейлист
 playlist = [
     "/media/01.%20Ma%20Holo.mp3",
     "/media/02.%20Beat%20Cop.mp3",
@@ -31,7 +31,7 @@ playlist = [
     "/media/06.%20High%20Slide.mp3",
     "/media/07.%20The%20Stakeout_%20Reprise%20%28feat.%20W.%20Giacchi%29.mp3",
     "/media/08.%20Dimension%20Alley.mp3",
-    "/media/09.%20Holodeck%20Blues.mp3"
+    "/media/09.%20Holodeck%20Blues.mp3",
 ]
 
 # Текущее состояние воспроизведения
