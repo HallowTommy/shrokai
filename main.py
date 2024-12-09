@@ -30,7 +30,7 @@ playlist = [
     "https://od.lk/s/NjBfMTYxNzI4OTUwXw/06.%20High%20Slide.mp3",
     "https://od.lk/s/NjBfMTYxNzI5MTE4Xw/07.%20The%20Stakeout_%20Reprise%20%28feat.%20W.%20Giacchi%29.mp3",
     "https://od.lk/s/NjBfMTYxNzI5Mjk5Xw/08.%20Dimension%20Alley.mp3",
-    "https://od.lk/s/NjBfMTYxNzI5ODAwXw/09.%20Holodeck%20Blues.mp3"
+    "https://od.lk/s/NjBfMTYxNzI5ODAwXw/09.%20Holodeck%20Blues.mp3",
 ]
 
 # Текущее состояние воспроизведения
@@ -74,7 +74,7 @@ async def broadcast_state():
             "type": "music",
             "track": current_track_index,
             "time": elapsed_time,
-            "url": playlist[current_track_index]
+            "url": playlist[current_track_index],
         }
         logger.info(f"Broadcasting state: {state}")
         await manager.broadcast(state)
@@ -96,14 +96,13 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            # Получаем данные от клиента
             data = await websocket.receive_json()
             if data.get("type") == "chat":
-                # Рассылаем сообщение чата
+                # Обрабатываем сообщения чата
                 chat_message = {
                     "type": "chat",
                     "username": data.get("username", "Anonymous"),
-                    "message": data.get("message", "")
+                    "message": data.get("message", ""),
                 }
                 await manager.broadcast(chat_message)
     except WebSocketDisconnect:
