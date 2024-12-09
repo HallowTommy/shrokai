@@ -76,9 +76,10 @@ async def broadcast_state():
             "time": elapsed_time,
             "url": playlist[current_track_index]
         }
+        logger.info(f"Broadcasting state: {state}")  # Логируем отправляемые данные
         await manager.broadcast(state)
         await asyncio.sleep(1)  # Обновление каждую секунду
-
+        
 # WebSocket-эндпоинт
 @app.websocket("/ws/chat")
 async def websocket_endpoint(websocket: WebSocket):
