@@ -4,13 +4,12 @@ import asyncio
 import logging
 import time
 
-# Создаем приложение FastAPI
 app = FastAPI()
 
 # Настраиваем CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Укажите конкретные домены для безопасности
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -33,11 +32,10 @@ playlist = [
     "https://od.lk/s/NjBfMTYxNzI5ODAwXw/09.%20Holodeck%20Blues.mp3"
 ]
 
-# Текущее состояние воспроизведения
 current_track_index = 0
-start_time = time.time()  # Время начала воспроизведения трека
+start_time = time.time()
 
-# Менеджер подключения WebSocket
+# Менеджеры WebSocket
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
@@ -58,40 +56,36 @@ class ConnectionManager:
             except Exception as e:
                 logger.error(f"Failed to send message: {e}")
 
-
-# Создаем два менеджера для музыки и чата
 music_manager = ConnectionManager()
 chat_manager = ConnectionManager()
 
-# Функция для обновления состояния музыки
+# Музыка
 async def broadcast_music_state():
     global current_track_index, start_time
     while True:
         elapsed_time = time.time() - start_time
-        if elapsed_time >= 180:  # Длительность трека (180 секунд)
+        if elapsed_time >= 180:
             current_track_index = (current_track_index + 1) % len(playlist)
             start_time = time.time()
             elapsed_time = 0
         state = {
-            "type": "music",  # Тип сообщения
+            "type": "music",
             "track": current_track_index,
             "time": elapsed_time,
             "url": playlist[current_track_index]
         }
         await music_manager.broadcast(state)
-        await asyncio.sleep(1)  # Обновление каждую секунду
+        await asyncio.sleep(1)
 
-# WebSocket-эндпоинт для музыки
 @app.websocket("/ws/music")
 async def music_websocket_endpoint(websocket: WebSocket):
     await music_manager.connect(websocket)
     try:
         while True:
-            await websocket.receive_text()  # Слушаем, если клиент отправляет данные
+            await websocket.receive_text()
     except WebSocketDisconnect:
         music_manager.disconnect(websocket)
 
-# WebSocket-эндпоинт для чата
 @app.websocket("/ws/chat")
 async def chat_websocket_endpoint(websocket: WebSocket):
     await chat_manager.connect(websocket)
@@ -99,7 +93,6 @@ async def chat_websocket_endpoint(websocket: WebSocket):
         while True:
             data = await websocket.receive_json()
             if data.get("type") == "chat":
-                # Обработка сообщений чата
                 chat_message = {
                     "type": "chat",
                     "username": data.get("username", "Anonymous"),
@@ -108,9 +101,9 @@ async def chat_websocket_endpoint(websocket: WebSocket):
                 await chat_manager.broadcast(chat_message)
     except WebSocketDisconnect:
         chat_manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
 
-# Запускаем рассылку состояния музыки
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(broadcast_music_state())
-
