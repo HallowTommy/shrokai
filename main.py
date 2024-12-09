@@ -91,18 +91,19 @@ async def chat_websocket_endpoint(websocket: WebSocket):
     await chat_manager.connect(websocket)
     try:
         while True:
-            data = await websocket.receive_json()
-            if data.get("type") == "chat":
-                chat_message = {
-                    "type": "chat",
-                    "username": data.get("username", "Anonymous"),
-                    "message": data.get("message", "")
-                }
-                await chat_manager.broadcast(chat_message)
+            try:
+                data = await websocket.receive_json()
+                if data.get("type") == "chat":
+                    chat_message = {
+                        "type": "chat",
+                        "username": data.get("username", "Anonymous"),
+                        "message": data.get("message", "")
+                    }
+                    await chat_manager.broadcast(chat_message)
+            except Exception as e:
+                logger.error(f"Error processing chat message: {e}")
     except WebSocketDisconnect:
         chat_manager.disconnect(websocket)
-    except Exception as e:
-        logger.error(f"Chat error: {e}")
 
 @app.on_event("startup")
 async def startup_event():
