@@ -89,3 +89,4 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(broadcast_state())
+
