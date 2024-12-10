@@ -100,7 +100,7 @@ async def chat_websocket_endpoint(websocket: WebSocket):
 
     try:
         # Подключаемся к ИИ
-        ai_socket = WebSocketClient(url="ws://ai-service-url/ws/ai")
+        ai_socket = WebSocketClient(url="ws://shrokgpt-production.up.railway.app/ws/ai")
         await ai_socket.connect()
 
         while True:
