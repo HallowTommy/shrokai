@@ -4,6 +4,8 @@ import asyncio
 import logging
 import re
 import time
+from starlette.websockets import WebSocket as StarletteWebSocket, WebSocketDisconnect as StarletteWebSocketDisconnect
+from starlette.websockets import WebSocketState
 
 app = FastAPI()
 
@@ -37,7 +39,7 @@ current_track_index = 0
 start_time = time.time()
 
 # Бан-лист и регулярное выражение для ссылок
-banned_words = ["spam", "offensive", "bannedword", "farm","rug","scum"]
+banned_words = ["spam", "offensive", "bannedword", "farm", "rug", "scum"]
 banned_links_pattern = r"http[s]?://\S+"
 
 # Менеджеры WebSocket
@@ -94,7 +96,13 @@ async def music_websocket_endpoint(websocket: WebSocket):
 @app.websocket("/ws/chat")
 async def chat_websocket_endpoint(websocket: WebSocket):
     await chat_manager.connect(websocket)
+    ai_socket = None
+
     try:
+        # Подключаемся к ИИ
+        ai_socket = WebSocketClient(url="ws://ai-service-url/ws/ai")
+        await ai_socket.connect()
+
         while True:
             data = await websocket.receive_json()
             message = data.get("message", "")
@@ -104,21 +112,38 @@ async def chat_websocket_endpoint(websocket: WebSocket):
             if any(word in message.lower() for word in banned_words):
                 logger.warning(f"Message contains banned word: {message}")
                 continue
-
             if re.search(banned_links_pattern, message):
                 logger.warning(f"Message contains a link: {message}")
                 continue
 
+            # Проверяем, направлено ли сообщение ИИ
+            if "@shrokai" in message.lower():
+                # Отправляем сообщение ИИ
+                await ai_socket.send_text(message)
+                ai_response = await ai_socket.receive_text()
+
+                # Формируем ответ ИИ
+                ai_message = {
+                    "type": "chat",
+                    "username": "ShrokAI",
+                    "message": ai_response,
+                }
+                await chat_manager.broadcast(ai_message)
+
+            # Отправляем сообщение в чат
             chat_message = {
                 "type": "chat",
                 "username": username,
-                "message": message
+                "message": message,
             }
             await chat_manager.broadcast(chat_message)
     except WebSocketDisconnect:
         chat_manager.disconnect(websocket)
     except Exception as e:
         logger.error(f"Chat error: {e}")
+    finally:
+        if ai_socket and ai_socket.state == WebSocketState.CONNECTED:
+            await ai_socket.close()
 
 @app.post("/update-banned-words/")
 async def update_banned_words(words: list[str]):
