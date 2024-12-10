@@ -2,6 +2,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import logging
+import re
 import time
 
 app = FastAPI()
@@ -34,6 +35,10 @@ playlist = [
 
 current_track_index = 0
 start_time = time.time()
+
+# Бан-лист и регулярное выражение для ссылок
+banned_words = ["spam", "offensive", "bannedword", "farm","rug","scum"]
+banned_links_pattern = r"http[s]?://\S+"
 
 # Менеджеры WebSocket
 class ConnectionManager:
@@ -91,21 +96,35 @@ async def chat_websocket_endpoint(websocket: WebSocket):
     await chat_manager.connect(websocket)
     try:
         while True:
-            try:
-                data = await websocket.receive_json()
-                if data.get("type") == "chat":
-                    chat_message = {
-                        "type": "chat",
-                        "username": data.get("username", "Anonymous"),
-                        "message": data.get("message", "")
-                    }
-                    await chat_manager.broadcast(chat_message)
-            except ValueError as e:
-                logger.error(f"Invalid JSON received: {e}")
+            data = await websocket.receive_json()
+            message = data.get("message", "")
+            username = data.get("username", "Anonymous")
+
+            # Фильтрация сообщений
+            if any(word in message.lower() for word in banned_words):
+                logger.warning(f"Message contains banned word: {message}")
+                continue
+
+            if re.search(banned_links_pattern, message):
+                logger.warning(f"Message contains a link: {message}")
+                continue
+
+            chat_message = {
+                "type": "chat",
+                "username": username,
+                "message": message
+            }
+            await chat_manager.broadcast(chat_message)
     except WebSocketDisconnect:
         chat_manager.disconnect(websocket)
     except Exception as e:
         logger.error(f"Chat error: {e}")
+
+@app.post("/update-banned-words/")
+async def update_banned_words(words: list[str]):
+    global banned_words
+    banned_words = words
+    return {"message": "Banned words updated.", "banned_words": banned_words}
 
 @app.on_event("startup")
 async def startup_event():
