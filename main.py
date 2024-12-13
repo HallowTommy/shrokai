@@ -57,6 +57,7 @@ class ConnectionManager:
         logger.info(f"Connection closed. Total connections: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
+        logger.info(f"Broadcasting message: {message}")  # Логируем сообщение перед отправкой
         for connection in self.active_connections:
             try:
                 await connection.send_json(message)
@@ -104,39 +105,42 @@ async def chat_websocket_endpoint(websocket: WebSocket):
         await ai_socket.connect()
 
         while True:
-            data = await websocket.receive_json()
-            message = data.get("message", "")
-            username = data.get("username", "Anonymous")
+            try:
+                data = await websocket.receive_json()
+                message = data.get("message", "")
+                username = data.get("username", "Anonymous")
 
-            # Фильтрация сообщений
-            if any(word in message.lower() for word in banned_words):
-                logger.warning(f"Message contains banned word: {message}")
-                continue
-            if re.search(banned_links_pattern, message):
-                logger.warning(f"Message contains a link: {message}")
-                continue
+                # Логируем входящее сообщение
+                logger.info(f"Received message from {username}: {message}")
 
-            # Проверяем, направлено ли сообщение ИИ
-            if "@shrokai" in message.lower():
-                # Отправляем сообщение ИИ
-                await ai_socket.send_text(message)
-                ai_response = await ai_socket.receive_text()
+                # Фильтрация сообщений
+                if any(word in message.lower() for word in banned_words):
+                    logger.warning(f"Message contains banned word: {message}")
+                    continue
+                if re.search(banned_links_pattern, message):
+                    logger.warning(f"Message contains a link: {message}")
+                    continue
 
-                # Формируем ответ ИИ
-                ai_message = {
+                # Проверяем, направлено ли сообщение ИИ
+                if "@shrokai" in message.lower():
+                    await ai_socket.send_text(message)
+                    ai_response = await ai_socket.receive_text()
+
+                    ai_message = {
+                        "type": "chat",
+                        "username": "ShrokAI",
+                        "message": ai_response,
+                    }
+                    await chat_manager.broadcast(ai_message)
+
+                chat_message = {
                     "type": "chat",
-                    "username": "ShrokAI",
-                    "message": ai_response,
+                    "username": username,
+                    "message": message,
                 }
-                await chat_manager.broadcast(ai_message)
-
-            # Отправляем сообщение в чат
-            chat_message = {
-                "type": "chat",
-                "username": username,
-                "message": message,
-            }
-            await chat_manager.broadcast(chat_message)
+                await chat_manager.broadcast(chat_message)
+            except Exception as e:
+                logger.error(f"Error in WebSocket loop: {e}")
     except WebSocketDisconnect:
         chat_manager.disconnect(websocket)
     except Exception as e:
