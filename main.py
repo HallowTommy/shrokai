@@ -50,19 +50,20 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        logger.info(f"New connection established. Total connections: {len(self.active_connections)}")
+        logger.info(f"New connection established from {websocket.client.host}:{websocket.client.port}. Total connections: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-        logger.info(f"Connection closed. Total connections: {len(self.active_connections)}")
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+            logger.info(f"Connection closed from {websocket.client.host}:{websocket.client.port}. Total connections: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
-        logger.info(f"Broadcasting message: {message}")  # Логируем сообщение перед отправкой
+        logger.info(f"Broadcasting message to {len(self.active_connections)} connections: {message}")
         for connection in self.active_connections:
             try:
                 await connection.send_json(message)
             except Exception as e:
-                logger.error(f"Failed to send message: {e}")
+                logger.error(f"Failed to send message to {connection.client.host}:{connection.client.port}. Error: {e}")
 
 music_manager = ConnectionManager()
 chat_manager = ConnectionManager()
@@ -103,26 +104,33 @@ async def chat_websocket_endpoint(websocket: WebSocket):
         # Подключаемся к ИИ
         ai_socket = WebSocketClient(url="ws://shrokgpt-production.up.railway.app/ws/ai")
         await ai_socket.connect()
+        logger.info("Connected to AI WebSocket")
 
         while True:
             try:
+                # Получение данных
                 data = await websocket.receive_json()
-                message = data.get("message", "")
-                username = data.get("username", "Anonymous")
+                logger.info(f"Received data: {data}")
 
-                # Логируем входящее сообщение
-                logger.info(f"Received message from {username}: {message}")
+                # Валидация и фильтрация данных
+                message = data.get("message", "").strip()
+                username = data.get("username", "Anonymous").strip()
 
-                # Фильтрация сообщений
+                if not message:
+                    logger.warning("Empty message received, skipping")
+                    continue
+
                 if any(word in message.lower() for word in banned_words):
-                    logger.warning(f"Message contains banned word: {message}")
-                    continue
-                if re.search(banned_links_pattern, message):
-                    logger.warning(f"Message contains a link: {message}")
+                    logger.warning(f"Message from {username} contains banned word: {message}")
                     continue
 
-                # Проверяем, направлено ли сообщение ИИ
+                if re.search(banned_links_pattern, message):
+                    logger.warning(f"Message from {username} contains a link: {message}")
+                    continue
+
+                # Если сообщение для ИИ
                 if "@shrokai" in message.lower():
+                    logger.info(f"Message directed to AI: {message}")
                     await ai_socket.send_text(message)
                     ai_response = await ai_socket.receive_text()
 
@@ -131,23 +139,30 @@ async def chat_websocket_endpoint(websocket: WebSocket):
                         "username": "ShrokAI",
                         "message": ai_response,
                     }
+                    logger.info(f"AI Response: {ai_message}")
                     await chat_manager.broadcast(ai_message)
 
+                # Отправка обычного сообщения
                 chat_message = {
                     "type": "chat",
                     "username": username,
                     "message": message,
                 }
+                logger.info(f"Broadcasting chat message: {chat_message}")
                 await chat_manager.broadcast(chat_message)
+
             except Exception as e:
                 logger.error(f"Error in WebSocket loop: {e}")
+
     except WebSocketDisconnect:
         chat_manager.disconnect(websocket)
+        logger.info("WebSocket disconnected")
     except Exception as e:
-        logger.error(f"Chat error: {e}")
+        logger.error(f"Unexpected error in chat WebSocket: {e}")
     finally:
         if ai_socket and ai_socket.state == WebSocketState.CONNECTED:
             await ai_socket.close()
+            logger.info("AI WebSocket closed")
 
 @app.post("/update-banned-words/")
 async def update_banned_words(words: list[str]):
