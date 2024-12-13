@@ -55,9 +55,11 @@ class ConnectionManager:
             self.active_connections.remove(websocket)
             logger.info(f"Connection closed. Total connections: {len(self.active_connections)}")
 
-    async def broadcast(self, message: dict):
+    async def broadcast(self, message: dict, sender: WebSocket = None):
         logger.info(f"Broadcasting message to {len(self.active_connections)} connections: {message}")
         for connection in self.active_connections:
+            if connection == sender:  # Пропускаем отправителя
+                continue
             try:
                 await connection.send_json(message)
             except Exception as e:
@@ -120,14 +122,14 @@ async def chat_websocket_endpoint(websocket: WebSocket):
                     logger.warning(f"Message from {username} contains a link: {message}")
                     continue
 
-                # Отправка обычного сообщения
+                # Отправка сообщения в общий чат
                 chat_message = {
                     "type": "chat",
                     "username": username,
                     "message": message,
                 }
                 logger.info(f"Broadcasting chat message: {chat_message}")
-                await chat_manager.broadcast(chat_message)
+                await chat_manager.broadcast(chat_message, sender=websocket)
 
             except WebSocketDisconnect:
                 logger.info("WebSocket disconnected in loop.")
