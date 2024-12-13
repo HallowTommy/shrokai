@@ -99,10 +99,6 @@ async def chat_websocket_endpoint(websocket: WebSocket):
 
     try:
         while True:
-            if websocket.application_state != WebSocketState.CONNECTED:
-                logger.warning("WebSocket is not connected. Breaking the loop.")
-                break
-
             try:
                 # Получение данных
                 data = await websocket.receive_json()
