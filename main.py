@@ -4,8 +4,6 @@ import asyncio
 import logging
 import re
 import time
-from starlette.websockets import WebSocket as StarletteWebSocket, WebSocketDisconnect as StarletteWebSocketDisconnect
-from starlette.websockets import WebSocketState
 
 app = FastAPI()
 
@@ -50,12 +48,12 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
         self.active_connections.append(websocket)
-        logger.info(f"New connection established from {websocket.client.host}:{websocket.client.port}. Total connections: {len(self.active_connections)}")
+        logger.info(f"New connection established. Total connections: {len(self.active_connections)}")
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-            logger.info(f"Connection closed from {websocket.client.host}:{websocket.client.port}. Total connections: {len(self.active_connections)}")
+            logger.info(f"Connection closed. Total connections: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
         logger.info(f"Broadcasting message to {len(self.active_connections)} connections: {message}")
@@ -63,7 +61,7 @@ class ConnectionManager:
             try:
                 await connection.send_json(message)
             except Exception as e:
-                logger.error(f"Failed to send message to {connection.client.host}:{connection.client.port}. Error: {e}")
+                logger.error(f"Failed to send message: {e}")
 
 music_manager = ConnectionManager()
 chat_manager = ConnectionManager()
@@ -98,14 +96,8 @@ async def music_websocket_endpoint(websocket: WebSocket):
 @app.websocket("/ws/chat")
 async def chat_websocket_endpoint(websocket: WebSocket):
     await chat_manager.connect(websocket)
-    ai_socket = None
 
     try:
-        # Подключаемся к ИИ
-        ai_socket = WebSocketClient(url="ws://shrokgpt-production.up.railway.app/ws/ai")
-        await ai_socket.connect()
-        logger.info("Connected to AI WebSocket")
-
         while True:
             try:
                 # Получение данных
@@ -128,20 +120,6 @@ async def chat_websocket_endpoint(websocket: WebSocket):
                     logger.warning(f"Message from {username} contains a link: {message}")
                     continue
 
-                # Если сообщение для ИИ
-                if "@shrokai" in message.lower():
-                    logger.info(f"Message directed to AI: {message}")
-                    await ai_socket.send_text(message)
-                    ai_response = await ai_socket.receive_text()
-
-                    ai_message = {
-                        "type": "chat",
-                        "username": "ShrokAI",
-                        "message": ai_response,
-                    }
-                    logger.info(f"AI Response: {ai_message}")
-                    await chat_manager.broadcast(ai_message)
-
                 # Отправка обычного сообщения
                 chat_message = {
                     "type": "chat",
@@ -159,10 +137,6 @@ async def chat_websocket_endpoint(websocket: WebSocket):
         logger.info("WebSocket disconnected")
     except Exception as e:
         logger.error(f"Unexpected error in chat WebSocket: {e}")
-    finally:
-        if ai_socket and ai_socket.state == WebSocketState.CONNECTED:
-            await ai_socket.close()
-            logger.info("AI WebSocket closed")
 
 @app.post("/update-banned-words/")
 async def update_banned_words(words: list[str]):
