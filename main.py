@@ -99,6 +99,10 @@ async def chat_websocket_endpoint(websocket: WebSocket):
 
     try:
         while True:
+            if websocket.application_state != WebSocketState.CONNECTED:
+                logger.warning("WebSocket is not connected. Breaking the loop.")
+                break
+
             try:
                 # Получение данных
                 data = await websocket.receive_json()
@@ -129,14 +133,16 @@ async def chat_websocket_endpoint(websocket: WebSocket):
                 logger.info(f"Broadcasting chat message: {chat_message}")
                 await chat_manager.broadcast(chat_message)
 
+            except WebSocketDisconnect:
+                logger.info("WebSocket disconnected in loop.")
+                break
             except Exception as e:
                 logger.error(f"Error in WebSocket loop: {e}")
 
     except WebSocketDisconnect:
+        logger.info("WebSocket disconnected.")
+    finally:
         chat_manager.disconnect(websocket)
-        logger.info("WebSocket disconnected")
-    except Exception as e:
-        logger.error(f"Unexpected error in chat WebSocket: {e}")
 
 @app.post("/update-banned-words/")
 async def update_banned_words(words: list[str]):
