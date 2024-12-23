@@ -1,12 +1,20 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.lifespan import Lifespan
 import asyncio
 import logging
 import re
 import time
 
-app = FastAPI()
+# Определяем lifespan для приложения
+async def lifespan(app: FastAPI):
+    # Выполняем действия при старте приложения
+    asyncio.create_task(broadcast_music_state())
+    yield  # Здесь можно добавить действия при завершении приложения
 
+app = FastAPI(lifespan=Lifespan(lifespan))
+
+# Остальной код остается без изменений
 # Настраиваем CORS
 app.add_middleware(
     CORSMiddleware,
@@ -20,6 +28,7 @@ app.add_middleware(
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Ваши обработчики WebSocket, маршруты и логика остаются такими же
 # Плейлист
 playlist = [
     "https://od.lk/s/NjBfMTYxNzI3OTY3Xw/01.%20Ma%20Holo.mp3",
