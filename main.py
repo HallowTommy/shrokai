@@ -1,11 +1,24 @@
-import os
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 import asyncio
 import logging
 import re
 import time
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.lifespan import Lifespan
+
+app = FastAPI()
+
+# Настраиваем CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Логирование
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Плейлист
 playlist = [
@@ -26,10 +39,6 @@ start_time = time.time()
 # Бан-лист и регулярное выражение для ссылок
 banned_words = ["spam", "offensive", "bannedword", "farm", "rug", "scum"]
 banned_links_pattern = r"http[s]?://\S+"
-
-# Логирование
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Менеджеры WebSocket
 class ConnectionManager:
@@ -77,22 +86,6 @@ async def broadcast_music_state():
         await music_manager.broadcast(state)
         await asyncio.sleep(1)
 
-async def lifespan(app: FastAPI):
-    asyncio.create_task(broadcast_music_state())
-    yield
-
-# Создание приложения
-app = FastAPI(lifespan=Lifespan(lifespan))
-
-# Настройка CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 @app.websocket("/ws/music")
 async def music_websocket_endpoint(websocket: WebSocket):
     await music_manager.connect(websocket)
@@ -105,6 +98,7 @@ async def music_websocket_endpoint(websocket: WebSocket):
 @app.websocket("/ws/chat")
 async def chat_websocket_endpoint(websocket: WebSocket):
     await chat_manager.connect(websocket)
+
     try:
         while True:
             try:
@@ -154,7 +148,6 @@ async def update_banned_words(words: list[str]):
     banned_words = words
     return {"message": "Banned words updated.", "banned_words": banned_words}
 
-if __name__ == "__main__":
-    import uvicorn
-    port = int(os.getenv("PORT", 8000))  # Используем переменную PORT или порт 8000
-    uvicorn.run(app, host="0.0.0.0", port=port)
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(broadcast_music_state())
