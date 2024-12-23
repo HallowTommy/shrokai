@@ -4,8 +4,15 @@ import asyncio
 import logging
 import re
 import time
+import os
 
-app = FastAPI()
+# Инициализация приложения FastAPI
+async def lifespan(app):
+    task = asyncio.create_task(broadcast_music_state())
+    yield
+    task.cancel()
+
+app = FastAPI(lifespan=lifespan)
 
 # Настраиваем CORS
 app.add_middleware(
@@ -148,6 +155,7 @@ async def update_banned_words(words: list[str]):
     banned_words = words
     return {"message": "Banned words updated.", "banned_words": banned_words}
 
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(broadcast_music_state())
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
